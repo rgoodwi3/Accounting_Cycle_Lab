@@ -394,24 +394,24 @@ const MS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec
 
 // ---------- Chart of accounts ----------
 const ACCTS = [
-  {id:"cash", no:101, name:"Cash", type:"asset", normal:"D"},
-  {id:"ar", no:112, name:"Accounts Receivable", type:"asset", normal:"D"},
-  {id:"sup", no:126, name:"Supplies", type:"asset", normal:"D"},
-  {id:"ppi", no:130, name:"Prepaid Insurance", type:"asset", normal:"D"},
-  {id:"equip", no:157, name:"Equipment", type:"asset", normal:"D"},
-  {id:"ad", no:158, name:"Accumulated Depreciation—Equipment", type:"contra", normal:"C"},
-  {id:"ap", no:201, name:"Accounts Payable", type:"liab", normal:"C"},
-  {id:"ur", no:209, name:"Unearned Service Revenue", type:"liab", normal:"C"},
-  {id:"sp", no:212, name:"Salaries and Wages Payable", type:"liab", normal:"C"},
-  {id:"cs", no:311, name:"Common Stock", type:"equity", normal:"C"},
-  {id:"re", no:320, name:"Retained Earnings", type:"equity", normal:"C"},
-  {id:"div", no:332, name:"Dividends", type:"div", normal:"D"},
-  {id:"rev", no:400, name:"Service Revenue", type:"rev", normal:"C"},
-  {id:"supx", no:631, name:"Supplies Expense", type:"exp", normal:"D"},
-  {id:"depx", no:711, name:"Depreciation Expense", type:"exp", normal:"D"},
-  {id:"insx", no:722, name:"Insurance Expense", type:"exp", normal:"D"},
-  {id:"sal", no:726, name:"Salaries and Wages Expense", type:"exp", normal:"D"},
-  {id:"rent", no:729, name:"Rent Expense", type:"exp", normal:"D"}
+  {id:"cash", no:1000, name:"Cash", type:"asset", normal:"D"},
+  {id:"ar", no:1100, name:"Accounts Receivable", type:"asset", normal:"D"},
+  {id:"ppi", no:1210, name:"Prepaid Insurance", type:"asset", normal:"D"},
+  {id:"sup", no:1300, name:"Supplies", type:"asset", normal:"D"},
+  {id:"equip", no:1500, name:"Equipment", type:"asset", normal:"D"},
+  {id:"ad", no:1599, name:"Accumulated Depreciation", type:"contra", normal:"C"},
+  {id:"ap", no:2000, name:"Accounts Payable", type:"liab", normal:"C"},
+  {id:"ur", no:2010, name:"Deferred Revenue", type:"liab", normal:"C"},
+  {id:"sp", no:2020, name:"Wages Payable", type:"liab", normal:"C"},
+  {id:"cs", no:3000, name:"Common Stock", type:"equity", normal:"C"},
+  {id:"re", no:3100, name:"Retained Earnings", type:"equity", normal:"C"},
+  {id:"div", no:3200, name:"Dividends", type:"div", normal:"D"},
+  {id:"rev", no:4000, name:"Service Revenue", type:"rev", normal:"C"},
+  {id:"rent", no:6000, name:"Rent Expense", type:"exp", normal:"D"},
+  {id:"insx", no:6020, name:"Insurance Expense", type:"exp", normal:"D"},
+  {id:"supx", no:6030, name:"Supplies Expense", type:"exp", normal:"D"},
+  {id:"sal", no:6040, name:"Wages Expense", type:"exp", normal:"D"},
+  {id:"depx", no:6090, name:"Depreciation Expense", type:"exp", normal:"D"}
 ];
 const A = Object.fromEntries(ACCTS.map(a=>[a.id,a]));
 const GROUPS = [
@@ -452,20 +452,21 @@ function gen(seed){
     const m={}; order.forEach((id,i)=>m[id]=i+1);
     const p={
       stock:R(30000,60000,5000),
-      depMo:R(60,200,10), salv:R(500,2000,100),
+      cost:R(5000,15000,500),
       supBuy:R(1000,3000,100),
       insMo:R(100,300,10), retMo:R(300,900,50),
       cashRev:R(8000,20000,500), arRev:R(4000,12000,500),
       sal:R(3000,8000,250), rent:R(1200,3000,100),
       div:R(1000,4000,250), accSal:R(400,1500,50), accRev:R(500,2500,100)
     };
-    p.cost=p.depMo*60+p.salv; p.supOn=R(200,p.supBuy-500,50); p.apPay=R(300,p.supBuy-300,100);
+    p.supOn=R(200,p.supBuy-500,50); p.apPay=R(300,p.supBuy-300,100);
     p.ins=p.insMo*12; p.ret=p.retMo*12; p.collect=R(2000,p.arRev-1000,500);
     const nIns=12-m.ins, nRet=12-m.ret, nDep=12-m.equip;
+    const dep=Math.max(50,Math.round(p.cost/5*nDep/12/50)*50);
     // cash never goes negative
     const flow={stock:p.stock,equip:-p.cost,sup:0,ins:-p.ins,ret:p.ret,cashRev:p.cashRev,arRev:0,sal:-p.sal,rent:-p.rent,apPay:-p.apPay,collect:p.collect,div:-p.div};
     let cash=0,okCash=true; order.forEach(id=>{cash+=flow[id];if(cash<0)okCash=false;}); if(!okCash)continue;
-    const ni=p.cashRev+p.arRev+p.retMo*nRet+p.accRev-(p.supBuy-p.supOn)-p.insMo*nIns-p.depMo*nDep-p.sal-p.accSal-p.rent;
+    const ni=p.cashRev+p.arRev+p.retMo*nRet+p.accRev-(p.supBuy-p.supOn)-p.insMo*nIns-dep-p.sal-p.accSal-p.rent;
     if(ni<p.div+1000)continue;
     const day={}; order.forEach(id=>day[id]=id==="stock"?R(2,6):R(3,27));
     const dt=id=>MS[m[id]-1]+" "+day[id];
@@ -475,7 +476,7 @@ function gen(seed){
         lines:[{a:"cash",dr:p.stock},{a:"cs",cr:p.stock}],
         why:"Cash is an asset, so it increases with a debit. Issuing stock increases contributed capital, part of stockholders' equity, which increases with a credit.",
         miss:{rev:"Issuing stock is an investment by owners, not revenue earned from clients.",re:"Owner investments go to Common Stock. Retained Earnings holds profits kept in the business."}},
-      equip:{title:"Buy office equipment for cash",desc:"Bought computers and office equipment for "+d$(p.cost)+" cash. The equipment has a 5-year useful life and a "+d$(p.salv)+" salvage value. Depreciation begins "+next("equip")+" 1.",
+      equip:{title:"Buy office equipment for cash",desc:"Bought computers and office equipment for "+d$(p.cost)+" cash.",
         lines:[{a:"equip",dr:p.cost},{a:"cash",cr:p.cost}],
         why:"One asset (Equipment) is exchanged for another (Cash), so total assets do not change. Depreciation is recorded later as an adjusting entry.",
         miss:{depx:"Depreciation is recorded at year-end as an adjusting entry. The purchase records the asset at its cost.",ap:"The equipment was paid for in cash, so nothing is owed.",ad:"Accumulated Depreciation is used only when depreciation is recorded at year-end."}},
@@ -489,20 +490,20 @@ function gen(seed){
         miss:{insx:"The policy covers future months, so the payment is an asset now. It becomes an expense as the coverage is used."}},
       ret:{title:"Collect cash in advance from a client",desc:"A client paid "+d$(p.ret)+" in advance for 12 months of consulting services beginning "+next("ret")+" 1, "+YEAR+".",
         lines:[{a:"cash",dr:p.ret},{a:"ur",cr:p.ret}],
-        why:"The company has the cash but has not done the work. It owes the client future services, so the credit goes to a liability (Unearned Service Revenue).",
+        why:"The company has the cash but has not done the work. It owes the client future services, so the credit goes to a liability (Deferred Revenue).",
         miss:{rev:"The work has not been performed yet, so the cash is not earned. Record an obligation to the client instead.",ar:"The client already paid, so there is nothing to collect."}},
       cashRev:{title:"Provide consulting services for cash",desc:"Completed consulting projects and collected "+d$(p.cashRev)+" in cash from clients.",
         lines:[{a:"cash",dr:p.cashRev},{a:"rev",cr:p.cashRev}],
         why:"Revenue is recognized when the service is performed. Revenue increases stockholders' equity, so it is recorded with a credit.",
-        miss:{ur:"The work is complete, so the revenue is earned. Unearned revenue is only for cash received before the work is done.",ar:"The clients paid cash, so there is nothing to collect."}},
+        miss:{ur:"The work is complete, so the revenue is earned. Deferred revenue is only for cash received before the work is done.",ar:"The clients paid cash, so there is nothing to collect."}},
       arRev:{title:"Provide consulting services on account",desc:"Completed a consulting project and billed the client "+d$(p.arRev)+", due in 30 days.",
         lines:[{a:"ar",dr:p.arRev},{a:"rev",cr:p.arRev}],
         why:"The work is done, so the revenue is earned now even though no cash has arrived. The right to collect is an asset (Accounts Receivable).",
-        miss:{cash:"No cash was received. The client was billed and will pay later.",ur:"The work is complete, so this is earned revenue, not unearned."}},
-      sal:{title:"Pay consultants' salaries",desc:"Paid consultants' salaries of "+d$(p.sal)+" for work performed this month.",
+        miss:{cash:"No cash was received. The client was billed and will pay later.",ur:"The work is complete, so this is earned revenue, not deferred revenue."}},
+      sal:{title:"Pay consultants' wages",desc:"Paid consultants' wages of "+d$(p.sal)+" for work performed this month.",
         lines:[{a:"sal",dr:p.sal},{a:"cash",cr:p.sal}],
-        why:"Expenses decrease stockholders' equity, so they are recorded with debits. The salaries were paid, so Cash decreases.",
-        miss:{sp:"These salaries were paid in cash, so nothing is owed."}},
+        why:"Expenses decrease stockholders' equity, so they are recorded with debits. The wages were paid, so Cash decreases.",
+        miss:{sp:"These wages were paid in cash, so nothing is owed."}},
       rent:{title:"Pay office rent",desc:"Paid "+d$(p.rent)+" of office rent for "+MON[m.rent-1]+".",
         lines:[{a:"rent",dr:p.rent},{a:"cash",cr:p.rent}],
         why:"The rent covers the current month only, so it is an expense right away rather than a prepaid asset.",
@@ -514,7 +515,7 @@ function gen(seed){
       collect:{title:"Collect from a client",desc:"Collected "+d$(p.collect)+" from the client billed in "+MON[m.arRev-1]+".",
         lines:[{a:"cash",dr:p.collect},{a:"ar",cr:p.collect}],
         why:"One asset is exchanged for another. The revenue was recorded when the work was done, so revenue does not change now.",
-        miss:{rev:"Revenue was recorded when the work was done. Collecting cash later does not create new revenue.",ur:"Unearned revenue is for cash received before the work. This work was already done and billed."}},
+        miss:{rev:"Revenue was recorded when the work was done. Collecting cash later does not create new revenue.",ur:"Deferred revenue is for cash received before the work. This work was already done and billed."}},
       div:{title:"Pay a cash dividend",desc:"The board of directors declared and paid a "+d$(p.div)+" cash dividend to stockholders.",
         lines:[{a:"div",dr:p.div},{a:"cash",cr:p.div}],
         why:"Dividends distribute earnings to owners. They reduce stockholders' equity, but they are not an expense and never appear on the income statement.",
@@ -522,7 +523,7 @@ function gen(seed){
         missType:{exp:"Dividends are distributions to owners, not expenses. They never appear on the income statement."}}
     };
     const steps=order.map((id,i)=>Object.assign({phase:"basic",ref:String(i+1),date:dt(id)},T[id]));
-    const used=p.supBuy-p.supOn, insE=p.insMo*nIns, dep=p.depMo*nDep, earned=p.retMo*nRet;
+    const used=p.supBuy-p.supOn, insE=p.insMo*nIns, earned=p.retMo*nRet;
     const mon=id=>MON[m[id]%12];
     const adj=[
       {kind:"Deferral · prepaid expense",title:"Record supplies used",desc:"The Supplies account shows "+d$(p.supBuy)+". A year-end count finds "+d$(p.supOn)+" of supplies still on hand.",
@@ -534,24 +535,23 @@ function gen(seed){
        calc:d$(p.ins)+" ÷ 12 = "+d$(p.insMo)+" per month × "+nIns+" months ("+mon("ins")+"–December) = "+d$(insE),
        lines:[{a:"insx",dr:insE},{a:"ppi",cr:insE}],
        why:nIns+" of the 12 months of coverage have been used. That portion leaves Prepaid Insurance and becomes Insurance Expense."},
-      {kind:"Depreciation",title:"Record depreciation on equipment",desc:"Record straight-line depreciation on the equipment bought in "+MON[m.equip-1]+" (cost "+d$(p.cost)+", salvage "+d$(p.salv)+", 5-year life, depreciation begins "+mon("equip")+" 1).",
-       calc:"("+d$(p.cost)+" − "+d$(p.salv)+") ÷ 5 years = "+d$(p.depMo*12)+" per year × "+nDep+"/12 = "+d$(dep),
+      {kind:"Depreciation",title:"Record depreciation on equipment",desc:"Depreciation on the equipment bought in "+MON[m.equip-1]+" is "+d$(dep)+" for "+YEAR+".",
        lines:[{a:"depx",dr:dep},{a:"ad",cr:dep}],
        why:"Depreciation spreads the cost of equipment over its useful life. The credit goes to Accumulated Depreciation, a contra-asset, so the Equipment account keeps its original cost.",
        miss:{equip:"Credit Accumulated Depreciation, not Equipment. Equipment stays at its original cost, and the contra-asset shows how much has been used up."}},
-      {kind:"Deferral · unearned revenue",title:"Recognize revenue earned on the advance payment",desc:"The client paid "+d$(p.ret)+" for 12 months of consulting that began "+mon("ret")+" 1. Record the portion earned through December 31.",
+      {kind:"Deferral · deferred revenue",title:"Recognize revenue earned on the advance payment",desc:"The client paid "+d$(p.ret)+" for 12 months of consulting that began "+mon("ret")+" 1. Record the portion earned through December 31.",
        calc:d$(p.ret)+" ÷ 12 = "+d$(p.retMo)+" per month × "+nRet+" months = "+d$(earned),
        lines:[{a:"ur",dr:earned},{a:"rev",cr:earned}],
        why:"Doing the work settles part of the obligation to the client. The liability falls by "+d$(earned)+" and the same amount becomes earned revenue.",
        miss:{ar:"The client already paid in advance, so there is nothing to collect.",cash:"The cash was recorded when the client paid. Adjusting entries never involve Cash."}},
-      {kind:"Accrual · accrued expense",title:"Accrue unpaid salaries",desc:"Consultants earned "+d$(p.accSal)+" during the last week of December. They will be paid in January "+(YEAR+1)+".",
+      {kind:"Accrual · accrued expense",title:"Accrue unpaid wages",desc:"Consultants earned "+d$(p.accSal)+" during the last week of December. They will be paid in January "+(YEAR+1)+".",
        lines:[{a:"sal",dr:p.accSal},{a:"sp",cr:p.accSal}],
        why:"The work was done in "+YEAR+", so the expense belongs in "+YEAR+" even though cash is paid later. The amount owed is a liability.",
-       miss:{ap:"Accounts Payable is for amounts owed to suppliers. Amounts owed to employees go to Salaries and Wages Payable."}},
+       miss:{ap:"Accounts Payable is for amounts owed to suppliers. Amounts owed to employees go to Wages Payable."}},
       {kind:"Accrual · accrued revenue",title:"Accrue unbilled revenue",desc:"Completed "+d$(p.accRev)+" of consulting work in late December that has not been billed yet.",
        lines:[{a:"ar",dr:p.accRev},{a:"rev",cr:p.accRev}],
        why:"The revenue was earned in "+YEAR+", so it is recorded in "+YEAR+". The right to bill and collect is a receivable.",
-       miss:{ur:"Unearned revenue is for cash received before the work. Here the work is done and the client has not paid."}}
+       miss:{ur:"Deferred revenue is for cash received before the work. Here the work is done and the client has not paid."}}
     ];
     shuffle(adj).forEach((s,i)=>steps.push(Object.assign({phase:"adjust",ref:"A"+(i+1),date:"Dec 31"},s)));
     return steps;
@@ -923,7 +923,7 @@ function renderFS(){
   re+=R("Retained earnings, December 31, "+YEAR,null,money(reEnd,true),{tot:1,u2:"dul"})+'</table>';
   const cash=nbal(b,"cash"),ar=nbal(b,"ar"),sup=nbal(b,"sup"),ppi=nbal(b,"ppi"),eqp=nbal(b,"equip"),ad=nbal(b,"ad");
   const TA=cash+ar+sup+ppi+eqp-ad;
-  const LN={ap:"Accounts payable",ur:"Unearned service revenue",sp:"Salaries and wages payable"};
+  const LN={ap:"Accounts payable",ur:"Deferred revenue",sp:"Wages payable"};
   const liabs=["ap","ur","sp"].map(id=>({id,v:nbal(b,id)})).filter(x=>x.v);
   const TL=liabs.reduce((s,x)=>s+x.v,0), cs=nbal(b,"cs"), TSE=cs+reEnd;
   let bs='<table class="st">'+cap("Balance Sheet","December 31, "+YEAR);
